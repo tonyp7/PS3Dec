@@ -4,7 +4,7 @@ A containerised alternative ISO encryptor/decryptor for PS3 disc images with a w
 
 This is started from the modified version of [PS3Dec r5](https://github.com/al3xtjames/PS3Dec), but uses mbedTLS 4.x (via the PSA Crypto API) for AES encryption/decryption and CMake as the build system.
 
-This was built because there are many GUI tools on Windows, but not many on Linux. Additionnaly, the container format makes this fully portable and avoid the headache of compiling PS3Dec which needs very outdated dependencies.
+This was built because there are many GUI tools on Windows, but not many on Linux. Additionnaly, the container format makes this fully portable and avoids the headache of compiling PS3Dec which needs very outdated dependencies.
 
 ## Quick start
 
