@@ -1,8 +1,3 @@
-# mbedTLS
-if (NOT TARGET MbedTLS::Crypto)
-    find_package(MbedTLS REQUIRED)
-endif()
-
 # OpenMP
 find_package(OpenMP REQUIRED)
 
@@ -13,6 +8,6 @@ set_target_properties(PS3Dec PROPERTIES
 )
 
 target_link_libraries(PS3Dec PRIVATE
-    MbedTLS::Crypto
+    PS3Dec::Crypto
     OpenMP::OpenMP_C
 )

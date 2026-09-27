@@ -12,14 +12,18 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-# Avoid deprecated CMake syntax
-set(CMAKE_WARN_DEPRECATED ON)
-
-# Add CMake modules
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-
-# Add external libraries
-add_subdirectory(external)
+# mbedTLS 4.x (AES is used through the PSA Crypto API, provided by TF-PSA-Crypto)
+find_package(MbedTLS 4 CONFIG QUIET)
+if (TARGET MbedTLS::tfpsacrypto)
+    message(STATUS "Using mbedTLS ${MbedTLS_VERSION}")
+    add_library(PS3Dec::Crypto INTERFACE IMPORTED)
+    target_link_libraries(PS3Dec::Crypto INTERFACE MbedTLS::tfpsacrypto)
+else()
+    find_package(TF-PSA-Crypto 1 CONFIG REQUIRED)
+    message(STATUS "Using TF-PSA-Crypto ${TF-PSA-Crypto_VERSION}")
+    add_library(PS3Dec::Crypto INTERFACE IMPORTED)
+    target_link_libraries(PS3Dec::Crypto INTERFACE TF-PSA-Crypto::tfpsacrypto)
+endif()
 
 # Add project files
 add_subdirectory(src)

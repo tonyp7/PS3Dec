@@ -1,0 +1,29 @@
+[project]
+name = "ps3dec-web"
+version = "0.1.0"
+description = "Local web front end for the PS3Dec disc image tool"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.141.1",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "cryptography>=50.0.1",
+    "httpx2>=2.13.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

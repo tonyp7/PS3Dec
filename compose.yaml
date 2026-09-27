@@ -1,0 +1,36 @@
+# Local-only: the port is published on loopback and the app has no authentication.
+#
+#   mkdir -p iso keys output
+#   PS3DEC_UID=$(id -u) PS3DEC_GID=$(id -g) docker compose up --build
+#
+# Then open http://127.0.0.1:8000
+services:
+  ps3dec:
+    build: .
+    image: ps3dec:latest
+    # Run as your own user so files written to ./output belong to you.
+    # (Defaults to 1000:1000, the user baked into the image.)
+    user: "${PS3DEC_UID:-1000}:${PS3DEC_GID:-1000}"
+    ports:
+      - "127.0.0.1:${PS3DEC_PORT:-8000}:8000"
+    volumes:
+      # create_host_path: false makes a missing folder an error, instead of Docker silently
+      # creating it as root, which would leave ./output unwritable.
+      - type: bind
+        source: ./iso
+        target: /data/iso
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./keys
+        target: /data/keys
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./output
+        target: /data/output
+        bind:
+          create_host_path: false
+    restart: unless-stopped

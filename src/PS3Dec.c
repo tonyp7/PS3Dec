@@ -16,7 +16,7 @@
 /*                                                                     */
 /***********************************************************************/
 
-/*to compile, link against polarssl and openmp*/
+/*to compile, link against mbedTLS (TF-PSA-Crypto) 4.x and openmp*/
 
 /*When defined, program calculates execution time*/
 #define TIMERS
@@ -47,7 +47,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <mbedtls/aes.h>
+#include <psa/crypto.h>
 #include <omp.h>
 
 #define EXIT_SUCCESS 0
@@ -138,20 +138,67 @@ void reset_iv(unsigned char* iv, unsigned int j)
 /*check user input for errors*/
 int sanatise_key(char* pot_key);
 
-#define MODE_ENCRYPT MBEDTLS_AES_ENCRYPT
-#define MODE_DECRYPT MBEDTLS_AES_DECRYPT
+#define MODE_ENCRYPT 1
+#define MODE_DECRYPT 0
 #define TYPE_3K3Y 0
 #define TYPE_D1 1
 #define TYPE_FILE 2
 #define TYPE_KEY 3
 
 /*aes variables for the data*/
-mbedtls_aes_context** aes=NULL;
+psa_key_id_t aes_key=PSA_KEY_ID_NULL;
 unsigned char* key=NULL;
 unsigned char* iv=NULL;
 char* burn=NULL;
 unsigned char* sec0sec1=NULL;
 unsigned int global_lba=0;
+
+/*import a 128 bit AES key for CBC (no padding) use in the given direction*/
+psa_key_id_t aes_import_key(const unsigned char* key_data, int mode)
+{
+  psa_key_attributes_t attr=PSA_KEY_ATTRIBUTES_INIT;
+  psa_key_id_t id=PSA_KEY_ID_NULL;
+
+  psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
+  psa_set_key_bits(&attr, 128);
+  psa_set_key_algorithm(&attr, PSA_ALG_CBC_NO_PADDING);
+  psa_set_key_usage_flags(&attr, mode==MODE_ENCRYPT?PSA_KEY_USAGE_ENCRYPT:PSA_KEY_USAGE_DECRYPT);
+  if(psa_import_key(&attr, key_data, 16, &id)!=PSA_SUCCESS)
+    return PSA_KEY_ID_NULL;
+  return id;
+}
+
+/*AES-128-CBC over len bytes (multiple of 16), in place is allowed. iv is not modified*/
+/*Safe to call from multiple threads even if mbedTLS is built without threading*/
+/*support: the only step that touches shared state (key lookup) is serialised*/
+int aes_cbc_crypt(psa_key_id_t id, int mode, const unsigned char* iv_in, unsigned char* data, size_t len)
+{
+  psa_cipher_operation_t op=PSA_CIPHER_OPERATION_INIT;
+  size_t out_len=0;
+  size_t fin_len=0;
+  psa_status_t status;
+
+  #pragma omp critical(ps3dec_psa_setup)
+  {
+    if(mode==MODE_ENCRYPT)
+      status=psa_cipher_encrypt_setup(&op, id, PSA_ALG_CBC_NO_PADDING);
+    else
+      status=psa_cipher_decrypt_setup(&op, id, PSA_ALG_CBC_NO_PADDING);
+  }
+  if(status!=PSA_SUCCESS)
+    return -1;
+
+  if( psa_cipher_set_iv(&op, iv_in, 16)!=PSA_SUCCESS
+   || psa_cipher_update(&op, data, len, data, len, &out_len)!=PSA_SUCCESS
+   || out_len!=len
+   || psa_cipher_finish(&op, data+out_len, len-out_len, &fin_len)!=PSA_SUCCESS
+   || fin_len!=0 )
+  {
+    psa_cipher_abort(&op);
+    return -1;
+  }
+  return 0;
+}
 
 /*cyclicly swap pointers. Pointers must be in correct order and point within*/
 /*same array 'base'*/
@@ -178,7 +225,7 @@ void process(unsigned char* data, int sector_count, int mode)
   {
     int id=omp_get_thread_num();
     reset_iv(&iv[16*id], global_lba+k);
-    if(mbedtls_aes_crypt_cbc(aes[id], mode, 2048, &iv[16*id], &data[2048*k], &data[2048*k])!=0)
+    if(aes_cbc_crypt(aes_key, mode, &iv[16*id], &data[2048*k], 2048)!=0)
       abort_err(mode==MODE_ENCRYPT?"ERROR: AES encrypt failed":"ERROR: AES decrypt failed");
   }
   global_lba+=sector_count;
@@ -261,7 +308,7 @@ int main(int argc, char*argv[])
   unsigned char* in=NULL;
 
   /*aes variables for the key*/
-  mbedtls_aes_context* aes_d1=NULL;
+  psa_key_id_t aes_d1=PSA_KEY_ID_NULL;
   unsigned char key_d1[] = {0x38, 11, 0xcf, 11, 0x53, 0x45, 0x5b, 60, 120, 0x17, 0xab, 0x4f, 0xa3, 0xba, 0x90, 0xed};
   unsigned char iv_d1[] = {0x69, 0x47, 0x47, 0x72, 0xaf, 0x6f, 0xda, 0xb3, 0x42, 0x74, 0x3a, 0xef, 170, 0x18, 0x62, 0x87};
 
@@ -309,6 +356,9 @@ int main(int argc, char*argv[])
 #endif
 
   fprintf(stderr, "PS3Dec r%d (compiled to use %d threads for enc/dec)\n\n", rev, THREAD_COUNT);
+
+  if(psa_crypto_init()!=PSA_SUCCESS)
+    abort_err("ERROR: Failed to initialise PSA crypto");
 
   if(argc<=1)
   {
@@ -417,33 +467,20 @@ int main(int argc, char*argv[])
   /*convert d1 to decryption key if necessary*/
   if(type==TYPE_3K3Y || type==TYPE_D1 || type==TYPE_FILE )
   {
-    aes_d1=malloc(sizeof(mbedtls_aes_context));
-    if( mbedtls_aes_setkey_enc( aes_d1, key_d1, 128 )!=0 )
+    aes_d1=aes_import_key(key_d1, MODE_ENCRYPT);
+    if( aes_d1==PSA_KEY_ID_NULL )
       abort_err("ERROR: AES encryption key initialisation failed for d1 -> key");
-    if(mbedtls_aes_crypt_cbc(aes_d1, MBEDTLS_AES_ENCRYPT, 16, iv_d1, key, key)!=0)
+    if(aes_cbc_crypt(aes_d1, MODE_ENCRYPT, iv_d1, key, 16)!=0)
       abort_err("ERROR: AES encrypt failed for d1 -> key");
-    free(aes_d1);
+    psa_destroy_key(aes_d1);
   }
   fprintf(stdout, "Decryption key:");hex_fprintf(stdout, key, 16);
 
   /*initialise aes*/
-  aes=malloc(sizeof(mbedtls_aes_context*)*THREAD_COUNT);
-  i=0;
-  while(i<THREAD_COUNT)
-  {
-    aes[i]=malloc(sizeof(mbedtls_aes_context));
-    if(mode==MODE_ENCRYPT)
-    {
-      if( mbedtls_aes_setkey_enc( aes[i], key, 128 )!=0 )
-        abort_err("ERROR: AES encryption key initialisation failed");
-    }
-    else
-    {
-      if( mbedtls_aes_setkey_dec( aes[i], key, 128 )!=0 )
-        abort_err("ERROR: AES decryption key initialisation failed");
-    }
-    ++i;
-  }
+  /*a single key is shared by all threads, see aes_cbc_crypt*/
+  aes_key=aes_import_key(key, mode);
+  if( aes_key==PSA_KEY_ID_NULL )
+    abort_err(mode==MODE_ENCRYPT?"ERROR: AES encryption key initialisation failed":"ERROR: AES decryption key initialisation failed");
 
   iv=malloc(16*THREAD_COUNT);
   in=malloc(3*BUFFER_SIZE);/*thriple sized buffer for simultaneous io+processing*/
@@ -592,13 +629,8 @@ int main(int argc, char*argv[])
 
   /*cleanup*/
   free(key);
-  i=0;
-  while(i<THREAD_COUNT)
-  {
-    free(aes[i]);
-    ++i;
-  }
-  free(aes);
+  psa_destroy_key(aes_key);
+  mbedtls_psa_crypto_free();
   free(iv);
   free(in);
   free(sec0sec1);
