@@ -12,4 +12,10 @@
 !/frontend/
 !/backend/
 !/src/
+!/io.github.tonyp7.PS3Dec.yml
+
+# .github/: only track workflows/, leave prompts/skills/etc. ignored
+!/.github/
+/.github/*
+!/.github/workflows/
 

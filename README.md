@@ -88,6 +88,16 @@ Job state is held in memory, so the app must run as a **single worker** (the def
 
 Four stages, all on Debian trixie: mbedTLS 4.2.0 is built from its release tarball (SHA-256 checked) and linked statically into PS3Dec; the frontend is built with Node and pnpm; the backend's Python dependencies are installed into a venv; the final stage contains only Python, `libgomp`, the venv, the binary and the built frontend, with no compilers or Node.
 
+## Container image & releases
+
+Every push to `main` builds this image and publishes it to GHCR as `ghcr.io/tonyp7/ps3dec:latest`, so it can be pulled instead of built locally:
+
+```sh
+docker pull ghcr.io/tonyp7/ps3dec:latest
+```
+
+Tagging a commit `vX.Y.Z` (always done against `main`'s current HEAD) promotes that same image to `ghcr.io/tonyp7/ps3dec:X.Y.Z` and creates a GitHub Release for that version containing both that image tag and the Flatpak bundle (see [Flatpak](#flatpak) above) — so a release always has one container image and one Flatpak bundle at the same version.
+
 ## Development
 
 ```sh
@@ -132,6 +142,16 @@ On macOS, libomp and mbedtls must be installed (available in Homebrew).
 3. `cmake -G Ninja .. && ninja` if Ninja is installed; otherwise,
    `cmake .. && make`
 4. Run the PS3Dec binary (`Release/PS3Dec`)
+
+### Flatpak
+
+On Linux, the CLI binary is also distributed as a Flatpak bundle, so it can be installed without a compiler or mbedTLS — no cloning or building required:
+
+1. Download `PS3Dec.flatpak` from the [latest release](https://github.com/tonyp7/PS3Dec/releases/latest).
+2. `flatpak install PS3Dec.flatpak`
+3. `flatpak run io.github.tonyp7.PS3Dec d key <key_hex> in.iso out.iso`
+
+The app is granted `--filesystem=host`, meaning it can read and write anywhere on your filesystem, the same as the natively compiled binary — this is required so it can reach disc images and key files wherever you keep them, at the cost of most of Flatpak's usual sandboxing.
 
 ## License
 

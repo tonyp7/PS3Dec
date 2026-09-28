@@ -1,0 +1,72 @@
+name: Release
+
+# One release pipeline per push of a vX.Y.Z tag: promote the container image
+# that container-image.yml already built for main's current HEAD (no
+# rebuild), build the Flatpak bundle, and create one GitHub Release
+# referencing both at the same SemVer. See add-release-automation's
+# design.md for why promotion relies on the tag always being cut from main's
+# current HEAD, and for the two-workflow split.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Compute version from tag
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "version=${REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Retags the image container-image.yml already pushed for this exact
+      # commit as :latest — no rebuild. Fails clearly if no :latest image
+      # exists yet (e.g. the tag was cut before any main build ever ran).
+      - name: Promote :latest to the release version
+        run: |
+          docker buildx imagetools create \
+            --tag "ghcr.io/tonyp7/ps3dec:${{ steps.version.outputs.version }}" \
+            ghcr.io/tonyp7/ps3dec:latest
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Platform//26.08 org.freedesktop.Sdk//26.08
+
+      - name: Build Flatpak bundle
+        run: |
+          flatpak-builder --force-clean --repo=repo build-dir io.github.tonyp7.PS3Dec.yml
+          flatpak build-bundle repo PS3Dec.flatpak io.github.tonyp7.PS3Dec
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: |
+            Container image: `ghcr.io/tonyp7/ps3dec:${{ steps.version.outputs.version }}`
+
+            ```sh
+            docker pull ghcr.io/tonyp7/ps3dec:${{ steps.version.outputs.version }}
+            ```
+          files: PS3Dec.flatpak
