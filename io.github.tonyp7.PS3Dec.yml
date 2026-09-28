@@ -1,0 +1,49 @@
+app-id: io.github.tonyp7.PS3Dec
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+command: PS3Dec
+
+# PS3Dec reads/writes disc images and key files at arbitrary paths the user
+# chooses, so it needs full filesystem access. No other permission is granted:
+# the tool has no network use and needs none.
+finish-args:
+  - --filesystem=host
+
+modules:
+  # Same pinned mbedTLS 4.x release used by Dockerfile's crypto-build stage,
+  # built static so the final PS3Dec binary has no runtime mbedTLS dependency.
+  - name: mbedtls
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_PREFIX=/app
+      - -DENABLE_PROGRAMS=OFF
+      - -DENABLE_TESTING=OFF
+      - -DUSE_SHARED_MBEDTLS_LIBRARY=OFF
+      - -DUSE_STATIC_MBEDTLS_LIBRARY=ON
+    sources:
+      - type: archive
+        url: https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-4.2.0/mbedtls-4.2.0.tar.bz2
+        sha256: 2bed9d713b4668f76553b097e72b8aa30bc8f112a940d7ae228d524bbde6ffea
+
+  - name: ps3dec
+    # CMakeLists.txt has no install() rule for the PS3Dec target (the native
+    # build just runs the compiled binary from the build dir, and Dockerfile's
+    # final stage copies it out directly rather than using `cmake --install`).
+    # buildsystem: simple mirrors that exactly, instead of relying on the
+    # cmake-ninja buildsystem's automatic `ninja install`, which has no
+    # "install" target to run and fails.
+    buildsystem: simple
+    build-commands:
+      - cmake -S . -B _build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/app
+      - cmake --build _build
+      - install -Dm755 _build/Release/PS3Dec /app/bin/PS3Dec
+    # Mirrors Dockerfile's crypto-build stage: only CMakeLists.txt and src/ are
+    # needed, not the whole repository checkout.
+    sources:
+      - type: file
+        path: CMakeLists.txt
+      - type: dir
+        path: src
+        dest: src
