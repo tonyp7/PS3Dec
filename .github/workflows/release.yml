@@ -6,6 +6,12 @@ name: Release
 # referencing both at the same SemVer. See add-release-automation's
 # design.md for why promotion relies on the tag always being cut from main's
 # current HEAD, and for the two-workflow split.
+#
+# The signed Android APK is built first, in its own job: the release job
+# needs it, so a failing Android build means no image promotion and no
+# release at all (all or nothing). The signing secrets live in the PS3Dec
+# environment and are only available to that job (see add-android-release's
+# design.md).
 on:
   push:
     tags:
@@ -16,7 +22,97 @@ permissions:
   packages: write
 
 jobs:
+  android:
+    runs-on: ubuntu-latest
+    environment: PS3Dec
+    permissions:
+      contents: read
+    outputs:
+      apk_sha256: ${{ steps.verify.outputs.apk_sha256 }}
+      cert_sha256: ${{ steps.verify.outputs.cert_sha256 }}
+    env:
+      ANDROID_PACKAGES: platform-tools platforms;android-37.0 build-tools;36.0.0
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Compute version from tag
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "version=${REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # Fail early and by name; an unset secret is otherwise just an empty string.
+      - name: Check signing secrets are present
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name is not set in the PS3Dec environment"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$sdkmanager" --licenses < <(yes) > /dev/null
+          # shellcheck disable=SC2086
+          "$sdkmanager" $ANDROID_PACKAGES > /dev/null
+
+      - name: Decode keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          chmod 600 "$RUNNER_TEMP/release.jks"
+
+      - name: Test the engine and build the signed APK
+        working-directory: android
+        env:
+          PS3DEC_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          PS3DEC_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          PS3DEC_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          PS3DEC_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon :engine:test :app:assembleRelease -Pps3dec.versionName="${{ steps.version.outputs.version }}"
+
+      - name: Verify the signature and compute digests
+        id: verify
+        run: |
+          apk_in=android/app/build/outputs/apk/release/app-release.apk
+          apk="PS3Dec-${{ steps.version.outputs.version }}.apk"
+          cp "$apk_in" "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
+          cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/certs.txt")
+          [ -n "$cert" ] || { echo "::error::The APK has no verifiable signing certificate"; exit 1; }
+          echo "apk_sha256=$(sha256sum "$apk" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "cert_sha256=$cert" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the APK for the release job
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: PS3Dec-${{ steps.version.outputs.version }}.apk
+          if-no-files-found: error
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+
   release:
+    needs: android
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -59,6 +155,11 @@ jobs:
           flatpak-builder --force-clean --repo=repo build-dir io.github.tonyp7.PS3Dec.yml
           flatpak build-bundle repo PS3Dec.flatpak io.github.tonyp7.PS3Dec
 
+      - name: Download the signed APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -69,4 +170,13 @@ jobs:
             ```sh
             docker pull ghcr.io/tonyp7/ps3dec:${{ steps.version.outputs.version }}
             ```
-          files: PS3Dec.flatpak
+
+            Android app: `PS3Dec-${{ steps.version.outputs.version }}.apk`
+
+            | | SHA-256 |
+            |---|---|
+            | APK | `${{ needs.android.outputs.apk_sha256 }}` |
+            | Signing certificate | `${{ needs.android.outputs.cert_sha256 }}` |
+          files: |
+            PS3Dec.flatpak
+            PS3Dec-${{ steps.version.outputs.version }}.apk
