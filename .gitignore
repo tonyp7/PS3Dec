@@ -12,6 +12,7 @@
 !/frontend/
 !/backend/
 !/src/
+!/android/
 !/io.github.tonyp7.PS3Dec.yml
 
 # .github/: only track workflows/, leave prompts/skills/etc. ignored

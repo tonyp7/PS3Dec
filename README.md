@@ -63,7 +63,7 @@ An existing file in output is only replaced after you confirm, and only once the
 
 ### Keys
 
-- A `.dkey` file holds the disc's **D1** as 32 hex characters (an optional `0x` prefix and surrounding whitespace are fine), as distributed by redump.
+- A `.dkey` file holds the disc's **disc key** as 32 hex characters (an optional `0x` prefix and surrounding whitespace are fine), as distributed by redump. It is used as is, exactly like `PS3Dec d key <hex>`; it is not a D1 (`d1` is the CLI type for the raw value that the tool first converts into the disc key).
 - A key is suggested for an ISO when the names match apart from the extension, ignoring case:
   `Game.iso` + `game.dkey`. You can pick another key by hand.
 - 3k3y images carry their own key and need none.
@@ -97,6 +97,10 @@ docker pull ghcr.io/tonyp7/ps3dec:latest
 ```
 
 Tagging a commit `vX.Y.Z` (always done against `main`'s current HEAD) promotes that same image to `ghcr.io/tonyp7/ps3dec:X.Y.Z` and creates a GitHub Release for that version containing both that image tag and the Flatpak bundle (see [Flatpak](#flatpak) above) — so a release always has one container image and one Flatpak bundle at the same version.
+
+## Android app
+
+There is also a native Android app (Jetpack Compose) with the same flow as the web app: pick an image, a key and a mode, press Start, follow progress. It is built for handhelds and phones: folders are chosen with the system folder picker on first launch (no broad storage permission), the conversion runs in a foreground service so it keeps going with the screen off, and the whole interface can be operated from a gamepad. The conversion engine is written in Kotlin and is tested to produce output identical to the C tool. See [android/README.md](android/README.md) for requirements, building and installing.
 
 ## Development
 

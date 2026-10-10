@@ -191,7 +191,7 @@ class JobManager:
         self._job = job  # claim the slot before any await
 
         letter = "d" if plan.mode == "decrypt" else "e"
-        type_args = ["3k3y"] if plan.d1 is None else ["d1", plan.d1]
+        type_args = ["3k3y"] if plan.d1 is None else ["key", plan.d1]
         argv = [
             str(self.settings.tool),
             letter,

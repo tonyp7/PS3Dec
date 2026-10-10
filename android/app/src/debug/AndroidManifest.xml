@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Debug builds only: runs the storage layer against a real provider. See android/README.md. -->
+        <activity
+            android:name=".lab.StorageLabActivity"
+            android:exported="true"
+            android:label="PS3Dec storage lab" />
+    </application>
+
+</manifest>

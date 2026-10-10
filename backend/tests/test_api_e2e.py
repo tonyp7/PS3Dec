@@ -28,7 +28,7 @@ def test_standard_encrypt_then_decrypt_matches_reference(client, dirs, regions):
     job = run(client, iso="Plain.iso", mode="encrypt", key="Plain.dkey")
     assert job["state"] == "succeeded", job
     encrypted = (dirs["output"] / "Plain.iso").read_bytes()
-    assert encrypted == synth.encrypt(plain)
+    assert encrypted == synth.encrypt(plain, key=bytes.fromhex(HEX))
 
     # feed the encrypted result back in as a new input and decrypt it
     (dirs["iso"] / "Enc.iso").write_bytes(encrypted)
