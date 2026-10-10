@@ -96,7 +96,7 @@ Every push to `main` builds this image and publishes it to GHCR as `ghcr.io/tony
 docker pull ghcr.io/tonyp7/ps3dec:latest
 ```
 
-Tagging a commit `vX.Y.Z` (always done against `main`'s current HEAD) promotes that same image to `ghcr.io/tonyp7/ps3dec:X.Y.Z` and creates a GitHub Release for that version containing both that image tag and the Flatpak bundle (see [Flatpak](#flatpak) above) — so a release always has one container image and one Flatpak bundle at the same version.
+Tagging a commit `vX.Y.Z` (always done against `main`'s current HEAD) promotes that same image to `ghcr.io/tonyp7/ps3dec:X.Y.Z` and creates a GitHub Release for that version containing that image tag, the Flatpak bundle (see [Flatpak](#flatpak) above) and the signed Android APK `PS3Dec-X.Y.Z.apk` — so a release always has one container image, one Flatpak bundle and one APK at the same version. If any of them fails to build, the release is not created. Install the APK by downloading it to the device (allow installs from your browser or file manager when asked); its SHA-256 and signing certificate are in the release notes, and how releases are signed is in [android/README.md](android/README.md#releases-and-signing).
 
 ## Android app
 

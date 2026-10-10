@@ -116,6 +116,54 @@ If a test fails because the engine and the C tool disagree, do not regenerate th
 
 A `.dkey` file (as distributed by redump) holds the **disc key** itself, as 32 hex characters, and the app uses it as is, like `PS3Dec d key <hex>`. It is not a D1 value: treating it as one derives the disc key a second time and produces a garbage image without any error. A D1 is only used for 3k3y images, which carry theirs in the header. The golden vectors cover both the `d1` and the `key` type of the C tool.
 
+## Releases and signing
+
+A release is cut by pushing a `vX.Y.Z` tag on `main`'s HEAD. The release workflow then runs the engine tests, builds a signed release APK named `PS3Dec-X.Y.Z.apk`, and attaches it to the GitHub Release next to the Flatpak and the container image reference, with its SHA-256 and the signing certificate's SHA-256 in the notes. If the Android job fails there is no release at all.
+
+An APK can only be updated by an APK signed with the same key, so releases are always signed with one release key. **If that key is lost, installed copies can never be updated** (users would have to uninstall, which also drops their folder grants). Keep a backup of the keystore and its passwords outside GitHub, which cannot show secrets again once set.
+
+### One-time setup
+
+Create the keystore (outside the repository; `*.jks` and `*.keystore` are git-ignored in any case):
+
+```sh
+keytool -genkeypair -storetype PKCS12 -keystore ps3dec-release.jks -alias ps3dec-release \
+  -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=PS3Dec, O=<you>"
+```
+
+With PKCS12 the key password equals the keystore password. Then create a GitHub environment named `PS3Dec` (repository Settings, Environments) and add these environment secrets:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 ps3dec-release.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_ALIAS` | `ps3dec-release` |
+| `ANDROID_KEY_PASSWORD` | the key password (same value as the keystore password) |
+
+Only the Android job of the release workflow declares that environment, and the workflow runs only for tag pushes, so pull requests (including from forks) never see the secrets. The environment is also where to restrict who can trigger a signing build (required reviewers, or deployments limited to `v*` tags).
+
+### Building a signed APK locally
+
+The same Gradle configuration is used locally; signing is read from the environment, nothing secret is in the repository:
+
+```sh
+cd android
+PS3DEC_KEYSTORE_FILE=/path/to/ps3dec-release.jks \
+PS3DEC_KEYSTORE_PASSWORD=... PS3DEC_KEY_ALIAS=ps3dec-release PS3DEC_KEY_PASSWORD=... \
+  ./gradlew :app:assembleRelease -Pps3dec.versionName=X.Y.Z
+```
+
+Without the four variables, `assembleRelease` produces an unsigned APK. Without `-Pps3dec.versionName` the version is `0.0.0-dev`. The version code is `major * 10000 + minor * 100 + patch`, so minor and patch must be below 100.
+
+### Verifying a downloaded APK
+
+```sh
+sha256sum PS3Dec-X.Y.Z.apk                                   # compare with the release notes
+$ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs PS3Dec-X.Y.Z.apk
+```
+
+The certificate SHA-256 should be the same in every release; if it changes, the APK cannot update an earlier install.
+
 ## Behavior on a device
 
 ### Performance
