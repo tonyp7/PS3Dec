@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A generic slim game console (dark body, light inlay with two buttons) with a disc on it and an open padlock on the disc. No logos or wordmarks. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Scaled to stay inside the circle that every launcher mask is guaranteed to show. -->
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.85" android:scaleY="0.85">
+        <path android:fillColor="#25282B" android:pathData="M29,21 H79 A8,8 0 0 1 87,29 V79 A8,8 0 0 1 79,87 H29 A8,8 0 0 1 21,79 V29 A8,8 0 0 1 29,21 Z" />
+        <path android:fillColor="#DADFE2" android:pathData="M51,87 V82 A14,14 0 0 1 65,68 H87 V79 A8,8 0 0 1 79,87 Z" />
+        <path android:fillColor="#4B5156" android:pathData="M63.8,79 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0 Z M74.3,79 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0 Z" />
+        <path android:fillColor="#9AA2A8" android:pathData="M65.4,79 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z M75.9,79 a1.1,1.1 0 1,0 2.2,0 a1.1,1.1 0 1,0 -2.2,0 Z" />
+        <path android:fillColor="#D7E8A8" android:pathData="M30,47 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0 Z" />
+        <path android:fillColor="#A9BD73" android:fillType="evenOdd" android:pathData="M39.12,47 a9.88,9.88 0 1,0 19.76,0 a9.88,9.88 0 1,0 -19.76,0 Z M40.5,47 a8.5,8.5 0 1,0 17,0 a8.5,8.5 0 1,0 -17,0 Z" />
+        <path android:fillColor="#25282B" android:pathData="M43.87,47 a5.13,5.13 0 1,0 10.26,0 a5.13,5.13 0 1,0 -10.26,0 Z" />
+        <path android:strokeColor="#FFFFFF" android:strokeAlpha="0.65" android:strokeWidth="2" android:strokeLineCap="round" android:pathData="M36.1,40.8 A14.25,14.25 0 0 1 42.6,33.7" />
+        <group android:translateX="0" android:translateY="-4">
+            <path android:strokeColor="#25282B" android:strokeWidth="5.4" android:strokeLineCap="round" android:pathData="M57.5,58 V52 A4.5,4.5 0 0 1 66.5,52 V53.2" />
+            <path android:fillColor="#25282B" android:strokeColor="#25282B" android:strokeWidth="3.6" android:strokeLineJoin="round" android:pathData="M56,58 H68 A2,2 0 0 1 70,60 V69 A2,2 0 0 1 68,71 H56 A2,2 0 0 1 54,69 V60 A2,2 0 0 1 56,58 Z" />
+            <path android:strokeColor="#F4B942" android:strokeWidth="2.8" android:strokeLineCap="round" android:pathData="M57.5,58 V52 A4.5,4.5 0 0 1 66.5,52 V53.2" />
+            <path android:fillColor="#F4B942" android:pathData="M56,58 H68 A2,2 0 0 1 70,60 V69 A2,2 0 0 1 68,71 H56 A2,2 0 0 1 54,69 V60 A2,2 0 0 1 56,58 Z" />
+            <path android:fillColor="#25282B" android:pathData="M60.2,64.8 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 Z M61.2,65 H62.8 V68.6 H61.2 Z" />
+        </group>
+    </group>
+</vector>
