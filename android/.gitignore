@@ -1,0 +1,17 @@
+# Gradle and build output
+.gradle/
+.kotlin/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Machine-specific SDK location (Android Studio writes this; see README.md)
+local.properties
+
+# IDE files
+.idea/
+*.iml
+.DS_Store
+
+# Keystores must never be committed
+*.jks
+*.keystore

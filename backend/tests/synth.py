@@ -93,8 +93,8 @@ def encrypted_ranges(data: bytes) -> list[tuple[int, int]]:
     return [(table[i - 1] + 1, table[i]) for i in range(1, len(table), 2)]
 
 
-def _crypt(data: bytes, d1: bytes, *, encrypt: bool, marker: bytes | None) -> bytes:
-    key = disc_key(d1)
+def _crypt(data: bytes, d1: bytes, *, encrypt: bool, marker: bytes | None, key: bytes | None = None) -> bytes:
+    key = key if key is not None else disc_key(d1)
     out = bytearray(data)
     for first, end in encrypted_ranges(data):
         for lba in range(first, end):
@@ -106,10 +106,10 @@ def _crypt(data: bytes, d1: bytes, *, encrypt: bool, marker: bytes | None) -> by
     return bytes(out)
 
 
-def encrypt(data: bytes, d1: bytes = DEFAULT_D1, *, three_k3y: bool = False) -> bytes:
-    """Independent reference for what ``PS3Dec e`` should produce."""
-    return _crypt(data, d1, encrypt=True, marker=ENCRYPTED_MARKER if three_k3y else None)
+def encrypt(data: bytes, d1: bytes = DEFAULT_D1, *, three_k3y: bool = False, key: bytes | None = None) -> bytes:
+    """Independent reference for what ``PS3Dec e`` should produce (``key``: the disc key itself, not a D1)."""
+    return _crypt(data, d1, encrypt=True, marker=ENCRYPTED_MARKER if three_k3y else None, key=key)
 
 
-def decrypt(data: bytes, d1: bytes = DEFAULT_D1, *, three_k3y: bool = False) -> bytes:
-    return _crypt(data, d1, encrypt=False, marker=DECRYPTED_MARKER if three_k3y else None)
+def decrypt(data: bytes, d1: bytes = DEFAULT_D1, *, three_k3y: bool = False, key: bytes | None = None) -> bytes:
+    return _crypt(data, d1, encrypt=False, marker=DECRYPTED_MARKER if three_k3y else None, key=key)

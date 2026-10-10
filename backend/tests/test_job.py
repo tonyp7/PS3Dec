@@ -201,7 +201,7 @@ def test_launch_arguments_and_temp_name(client, dirs, std, env, tmp_path):
     assert post(client, mode="encrypt").status_code == 202
     wait_job(client, until=lambda j: argv_file.exists())
     args = argv_file.read_text().split("\n")
-    assert args[:3] == ["e", "d1", HEX]
+    assert args[:3] == ["e", "key", HEX]
     assert args[3] == str(dirs["iso"] / "Game.iso")
     assert args[4] == str(dirs["output"] / "Game.iso.ps3dec.part")
     assert not args[4].endswith(".iso")
